@@ -1,0 +1,7 @@
+dist/bundle.js
+dist/index.html
+node_modules/
+elm-stuff/
+tests/elm-stuff/
+.idea
+yarn.lock

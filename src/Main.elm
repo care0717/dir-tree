@@ -1,7 +1,7 @@
 module Main exposing (Id, Model, Msg(..), NodeData, addChild, deleteChild, goToNodeById, init, main, nodeOfTreeById, nodeTree, resetId, tree2Html, tree2Zipper, treeOfZipper, update, view)
 
 import Browser
-import Html exposing (Html, button, div, input, li, text, ul)
+import Html exposing (Html, button, div, input, li, pre, text, ul)
 import Html.Attributes exposing (class, value)
 import Html.Events exposing (onClick, onInput)
 import List exposing ((::))
@@ -34,10 +34,9 @@ nodeTree : Tree NodeData
 nodeTree =
     Tree { id = [], value = "root" }
         [ Tree { id = [ 0 ], value = "aaa" } []
-        , Tree { id = [ 1 ], value = "bbb" } []
-        , Tree { id = [ 2 ], value = "ccc" }
-            [ Tree { id = [ 2, 0 ], value = "ccc" } []
-            ]
+        , Tree { id = [ 1 ], value = "bbb" } [ Tree { id = [ 1, 0 ], value = "ccc" } [] ]
+        , Tree { id = [ 2 ], value = "ddd" }
+            []
         ]
 
 
@@ -187,13 +186,13 @@ addChild id tree =
 
 
 tree2Html : Tree NodeData -> Html Msg
-tree2Html node =
+tree2Html tree =
     let
         data =
-            datum node
+            datum tree
 
         forest =
-            children node
+            children tree
     in
     ul []
         [ li []
@@ -209,6 +208,47 @@ tree2Html node =
         ]
 
 
+tree2Plane : Tree NodeData -> String
+tree2Plane tree =
+    case children tree |> List.reverse of
+        last :: rest ->
+            (datum tree).value
+                ++ List.foldl
+                    (\x acc ->
+                        let
+                            lines =
+                                tree2Plane x
+                        in
+                        acc ++ addHeader lines
+                    )
+                    ""
+                    (List.reverse rest)
+                ++ addLastHeader (tree2Plane last)
+
+        _ ->
+            (datum tree).value
+
+
+addHeader : String -> String
+addHeader s =
+    case String.split "\n" s of
+        first :: li ->
+            "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" li
+
+        _ ->
+            ""
+
+
+addLastHeader : String -> String
+addLastHeader s =
+    case String.split "\n" s of
+        first :: li ->
+            "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" li
+
+        _ ->
+            ""
+
+
 
 -- VIEW
 
@@ -219,4 +259,6 @@ view model =
         [ div [ class "sitemap" ]
             [ tree2Html model.node
             ]
+        , pre []
+            [ text <| tree2Plane model.node ]
         ]

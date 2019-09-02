@@ -1,4 +1,4 @@
-module Main exposing (Id, Model, Msg(..), NodeData, deleteChildren, goToNodeById, init, main, nodeOfTreeById, nodeTree, tree2Html, tree2Zipper, treeOfZipper, update, view)
+module Main exposing (Id, Model, Msg(..), NodeData, addChild, deleteChild, goToNodeById, init, main, nodeOfTreeById, nodeTree, resetId, tree2Html, tree2Zipper, treeOfZipper, update, view)
 
 import Browser
 import Html exposing (Html, button, div, input, li, text, ul)
@@ -6,7 +6,7 @@ import Html.Attributes exposing (class, value)
 import Html.Events exposing (onClick, onInput)
 import List exposing ((::))
 import Monocle.Optional as Optional exposing (Optional)
-import MultiwayTree exposing (Tree(..), children, datum, insertChild)
+import MultiwayTree exposing (Tree(..), children, datum)
 import MultiwayTreeZipper as Zipper exposing (Zipper)
 
 
@@ -63,7 +63,7 @@ update msg model =
             { model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
-            case deleteChildren id model.node of
+            case deleteChild id model.node of
                 Just zip ->
                     { model | node = treeOfZipper zip |> resetId }
 
@@ -71,7 +71,7 @@ update msg model =
                     model
 
         Add id ->
-            case addChildren id model.node of
+            case addChild id model.node of
                 Just zip ->
                     { model | node = treeOfZipper zip }
 
@@ -146,8 +146,8 @@ resetChildrenId tree =
     Tree (datum tree) newChildren
 
 
-deleteChildren : Id -> Tree NodeData -> Maybe (Zipper NodeData)
-deleteChildren id tree =
+deleteChild : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+deleteChild id tree =
     List.reverse id
         |> List.head
         |> Maybe.andThen
@@ -166,8 +166,8 @@ deleteChildren id tree =
             )
 
 
-addChildren : Id -> Tree NodeData -> Maybe (Zipper NodeData)
-addChildren id tree =
+addChild : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+addChild id tree =
     let
         mZip =
             Just (tree2Zipper tree) |> goToNodeById id

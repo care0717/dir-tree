@@ -1,0 +1,39 @@
+* {
+  margon: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sitemap ul li ul {
+  margin-top: .5em;
+  margin-bottom: .75em;
+  margin-left: 48px;
+}
+
+.sitemap ul li ul li {
+  margin-bottom: .25em;
+  position: relative;
+}
+
+.sitemap ul li ul li::before {
+  content: "";
+  position: absolute;
+  top: -0.5em;
+  left: -16px;
+  width: 10px;
+  height: calc(100% + .75em);
+  border-left: 1px solid #3972b2;
+}
+
+.sitemap ul li ul li:last-child::before {
+  height: calc(1em + .25em);
+}
+
+.sitemap ul li ul li::after {
+  content: "";
+  position: absolute;
+  top: .75em;
+  left: -16px;
+  width: 10px;
+  border-bottom: 1px solid #3972b2;
+}

@@ -1,4 +1,4 @@
-module Main exposing (Id, Model, Msg(..), NodeData, goToNodeById, init, main, nodeOfTreeById, nodeTree, tree2Html, tree2Zipper, treeOfZipper, update, view)
+module Main exposing (Id, Model, Msg(..), NodeData, deleteChildren, goToNodeById, init, main, nodeOfTreeById, nodeTree, tree2Html, tree2Zipper, treeOfZipper, update, view)
 
 import Browser
 import Html exposing (Html, button, div, input, li, text, ul)
@@ -63,27 +63,7 @@ update msg model =
             { model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
-            let
-                result =
-                    List.reverse id
-                        |> List.head
-                        |> Maybe.andThen
-                            (\index ->
-                                let
-                                    mParentZip =
-                                        Just (tree2Zipper model.node) |> goToNodeById (List.take (List.length id - 1) id)
-
-                                    removeIndex i list =
-                                        List.take i list ++ List.drop (i + 1) list
-                                in
-                                mParentZip
-                                    |> Maybe.andThen
-                                        (\zip ->
-                                            Zipper.updateChildren (removeIndex index (treeOfZipper zip |> children)) zip
-                                        )
-                            )
-            in
-            case result of
+            case deleteChildren id model.node of
                 Just zip ->
                     { model | node = treeOfZipper zip |> resetId }
 
@@ -91,28 +71,7 @@ update msg model =
                     model
 
         Add id ->
-            let
-                mZip =
-                    Just (tree2Zipper model.node) |> goToNodeById id
-
-                result =
-                    mZip
-                        |> Maybe.andThen
-                            (\zip ->
-                                let
-                                    node =
-                                        treeOfZipper zip
-
-                                    len =
-                                        children node |> List.length
-
-                                    emptyTree =
-                                        Tree { id = id ++ [ len ], value = "" } []
-                                in
-                                zip |> Zipper.appendChild emptyTree |> Maybe.andThen Zipper.goToRoot
-                            )
-            in
-            case result of
+            case addChildren id model.node of
                 Just zip ->
                     { model | node = treeOfZipper zip }
 
@@ -185,6 +144,46 @@ resetChildrenId tree =
                 (children tree)
     in
     Tree (datum tree) newChildren
+
+
+deleteChildren : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+deleteChildren id tree =
+    List.reverse id
+        |> List.head
+        |> Maybe.andThen
+            (\index ->
+                let
+                    removeElement i list =
+                        List.take i list ++ List.drop (i + 1) list
+                in
+                Just (tree2Zipper tree)
+                    |> goToNodeById (List.take (List.length id - 1) id)
+                    |> Maybe.andThen
+                        (\zip ->
+                            Zipper.updateChildren (removeElement index (treeOfZipper zip |> children)) zip
+                        )
+                    |> Maybe.andThen Zipper.goToRoot
+            )
+
+
+addChildren : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+addChildren id tree =
+    let
+        mZip =
+            Just (tree2Zipper tree) |> goToNodeById id
+    in
+    mZip
+        |> Maybe.andThen
+            (\zip ->
+                let
+                    len =
+                        treeOfZipper zip |> children |> List.length
+
+                    emptyTree =
+                        Tree { id = id ++ [ len ], value = "" } []
+                in
+                zip |> Zipper.appendChild emptyTree |> Maybe.andThen Zipper.goToRoot
+            )
 
 
 tree2Html : Tree NodeData -> Html Msg

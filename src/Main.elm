@@ -1,49 +1,97 @@
+module Main exposing (Id, Model, Msg(..), NodeData, goToNodeById, init, main, nodeOfTreeById, nodeTree, tree2Html, tree2Zipper, treeOfZipper, update, view)
+
 import Browser
-import List exposing ((::))
-import Html exposing (Html, button, div, text, ul, li, input)
+import Html exposing (Html, button, div, input, li, text, ul)
 import Html.Attributes exposing (class, value)
-import Html.Events exposing (onInput)
-import MultiwayTreeZipper as Zipper exposing (Zipper)
-import MultiwayTree exposing (Tree(..), datum, children)
-import Flip
+import Html.Events exposing (onClick, onInput)
+import List exposing ((::))
 import Monocle.Optional as Optional exposing (Optional)
+import MultiwayTree exposing (Tree(..), children, datum, insertChild)
+import MultiwayTreeZipper as Zipper exposing (Zipper)
+
 
 main =
-  Browser.sandbox { init = init, update = update, view = view }
+    Browser.sandbox { init = init, update = update, view = view }
+
 
 
 -- MODEL
 
+
 type alias Id =
     List Int
+
 
 type alias NodeData =
     { id : Id, value : String }
 
-type alias Model = { node: Tree NodeData, length: Int}
+
+type alias Model =
+    { node : Tree NodeData, length : Int }
+
 
 nodeTree : Tree NodeData
 nodeTree =
     Tree { id = [], value = "root" }
         [ Tree { id = [ 0 ], value = "aaa" } []
         , Tree { id = [ 1 ], value = "bbb" } []
-        , Tree { id = [ 2 ], value = "ccc" } []
+        , Tree { id = [ 2 ], value = "ccc" }
+            [ Tree { id = [ 2, 0 ], value = "ccc" } []
+            ]
         ]
 
+
 init : Model
-init = Model nodeTree 1
+init =
+    Model nodeTree 1
+
+
 
 -- UPDATE
 
-type Msg = Change Id String
 
+type Msg
+    = Change Id String
+    | Add Id
 
 
 update : Msg -> Model -> Model
 update msg model =
-  case msg of
-    Change id value ->
-        {model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value })}
+    case msg of
+        Change id value ->
+            { model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
+
+        Add id ->
+            let
+                zipper =
+                    tree2Zipper model.node
+
+                mZip =
+                    Just zipper |> goToNodeById id
+
+                result =
+                    mZip
+                        |> Maybe.andThen
+                            (\zip ->
+                                let
+                                    node =
+                                        treeOfZipper zip
+
+                                    len =
+                                        children node |> List.length
+
+                                    emptyTree =
+                                        Tree { id = id ++ [ len ], value = "" } []
+                                in
+                                zip |> Zipper.appendChild emptyTree |> Maybe.andThen Zipper.goToRoot
+                            )
+            in
+            case result of
+                Just zip ->
+                    { model | node = treeOfZipper zip }
+
+                Nothing ->
+                    model
 
 
 treeOfZipper : Zipper a -> Tree a
@@ -56,10 +104,10 @@ tree2Zipper tree =
     ( tree, [] )
 
 
-
 goToNodeById : Id -> Maybe (Zipper a) -> Maybe (Zipper a)
 goToNodeById id mZipper =
     List.foldl (\idx mz -> mz |> Maybe.andThen (Zipper.goToChild idx)) mZipper id
+
 
 nodeOfTreeById : Id -> Optional (Tree a) a
 nodeOfTreeById id =
@@ -80,22 +128,37 @@ nodeOfTreeById id =
         set data tree =
             Maybe.withDefault tree (Maybe.map treeOfZipper <| replacedZipper tree data)
     in
-        Optional get set
+    Optional get set
+
 
 tree2Html : Tree NodeData -> Html Msg
 tree2Html node =
     let
-        data = datum node
-        forest = children node
+        data =
+            datum node
+
+        forest =
+            children node
     in
-        ul [] [ li [] ((::) (input [ value data.value, onInput (Change data.id)] []) (List.map tree2Html forest)) ]
+    ul []
+        [ li []
+            ((::)
+                (div []
+                    [ input [ value data.value, onInput (Change data.id) ] []
+                    , button [ onClick (Add data.id) ] [ text "+" ]
+                    ]
+                )
+                (List.map tree2Html forest)
+            )
+        ]
+
 
 
 -- VIEW
 
+
 view : Model -> Html Msg
 view model =
-      div [ class "sitemap" ]
-        [
-          tree2Html model.node
+    div [ class "sitemap" ]
+        [ tree2Html model.node
         ]

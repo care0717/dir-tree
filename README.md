@@ -1,4 +1,4 @@
-# Sample
+# Dir tree
 
 ## How to build 
 `yarn && yarn build`

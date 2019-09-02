@@ -53,6 +53,7 @@ init =
 type Msg
     = Change Id String
     | Add Id
+    | Delete Id
 
 
 update : Msg -> Model -> Model
@@ -61,13 +62,38 @@ update msg model =
         Change id value ->
             { model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
 
+        Delete id ->
+            let
+                result =
+                    List.reverse id
+                        |> List.head
+                        |> Maybe.andThen
+                            (\index ->
+                                let
+                                    mParentZip =
+                                        Just (tree2Zipper model.node) |> goToNodeById (List.take (List.length id - 1) id)
+
+                                    removeIndex i list =
+                                        List.take i list ++ List.drop (i + 1) list
+                                in
+                                mParentZip
+                                    |> Maybe.andThen
+                                        (\zip ->
+                                            Zipper.updateChildren (removeIndex index (treeOfZipper zip |> children)) zip
+                                        )
+                            )
+            in
+            case result of
+                Just zip ->
+                    { model | node = treeOfZipper zip |> resetId }
+
+                Nothing ->
+                    model
+
         Add id ->
             let
-                zipper =
-                    tree2Zipper model.node
-
                 mZip =
-                    Just zipper |> goToNodeById id
+                    Just (tree2Zipper model.node) |> goToNodeById id
 
                 result =
                     mZip
@@ -131,6 +157,36 @@ nodeOfTreeById id =
     Optional get set
 
 
+resetId : Tree NodeData -> Tree NodeData
+resetId tree =
+    let
+        newTree =
+            Tree { id = [], value = (datum tree).value } (children tree)
+    in
+    resetChildrenId newTree
+
+
+resetChildrenId : Tree NodeData -> Tree NodeData
+resetChildrenId tree =
+    let
+        id =
+            (datum tree).id
+
+        newChildren =
+            List.foldl
+                (\child acc ->
+                    let
+                        newChild =
+                            Tree { id = id ++ [ List.length acc ], value = (datum child).value } (children child)
+                    in
+                    acc ++ [ resetChildrenId newChild ]
+                )
+                []
+                (children tree)
+    in
+    Tree (datum tree) newChildren
+
+
 tree2Html : Tree NodeData -> Html Msg
 tree2Html node =
     let
@@ -146,6 +202,7 @@ tree2Html node =
                 (div []
                     [ input [ value data.value, onInput (Change data.id) ] []
                     , button [ onClick (Add data.id) ] [ text "+" ]
+                    , button [ onClick (Delete data.id) ] [ text "-" ]
                     ]
                 )
                 (List.map tree2Html forest)
@@ -159,6 +216,8 @@ tree2Html node =
 
 view : Model -> Html Msg
 view model =
-    div [ class "sitemap" ]
-        [ tree2Html model.node
+    div []
+        [ div [ class "sitemap" ]
+            [ tree2Html model.node
+            ]
         ]

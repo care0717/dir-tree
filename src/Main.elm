@@ -1,4 +1,4 @@
-module Main exposing (Id, Model, Msg(..), NodeData, addChild, deleteChild, goToNodeById, init, main, nodeOfTreeById, nodeTree, resetId, tree2Html, tree2Zipper, treeOfZipper, update, view)
+module Main exposing (addChild, deleteChild, main, resetId)
 
 import Browser
 import Html exposing (Html, button, div, input, li, pre, text, ul)
@@ -27,7 +27,7 @@ type alias NodeData =
 
 
 type alias Model =
-    { node : Tree NodeData, length : Int }
+    { tree : Tree NodeData }
 
 
 nodeTree : Tree NodeData
@@ -42,7 +42,7 @@ nodeTree =
 
 init : Model
 init =
-    Model nodeTree 1
+    Model nodeTree
 
 
 
@@ -59,20 +59,20 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Change id value ->
-            { model | node = model.node |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
+            { model | tree = model.tree |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
-            case deleteChild id model.node of
-                Just zip ->
-                    { model | node = treeOfZipper zip |> resetId }
+            case deleteChild id model.tree of
+                Just tree ->
+                    { model | tree = tree |> resetId }
 
                 Nothing ->
                     model
 
         Add id ->
-            case addChild id model.node of
-                Just zip ->
-                    { model | node = treeOfZipper zip }
+            case addChild id model.tree of
+                Just tree ->
+                    { model | tree = tree }
 
                 Nothing ->
                     model
@@ -145,7 +145,7 @@ resetChildrenId tree =
     Tree (datum tree) newChildren
 
 
-deleteChild : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+deleteChild : Id -> Tree NodeData -> Maybe (Tree NodeData)
 deleteChild id tree =
     List.reverse id
         |> List.head
@@ -163,9 +163,10 @@ deleteChild id tree =
                         )
                     |> Maybe.andThen Zipper.goToRoot
             )
+        |> Maybe.map treeOfZipper
 
 
-addChild : Id -> Tree NodeData -> Maybe (Zipper NodeData)
+addChild : Id -> Tree NodeData -> Maybe (Tree NodeData)
 addChild id tree =
     let
         mZip =
@@ -183,6 +184,7 @@ addChild id tree =
                 in
                 zip |> Zipper.appendChild emptyTree |> Maybe.andThen Zipper.goToRoot
             )
+        |> Maybe.map treeOfZipper
 
 
 tree2Html : Tree NodeData -> Html Msg
@@ -215,15 +217,11 @@ tree2Plane tree =
             (datum tree).value
                 ++ List.foldl
                     (\x acc ->
-                        let
-                            lines =
-                                tree2Plane x
-                        in
-                        acc ++ addHeader lines
+                        acc ++ addHeader (tree2Plane x)
                     )
                     ""
                     (List.reverse rest)
-                ++ addLastHeader (tree2Plane last)
+                ++ addHeader4Last (tree2Plane last)
 
         _ ->
             (datum tree).value
@@ -232,18 +230,18 @@ tree2Plane tree =
 addHeader : String -> String
 addHeader s =
     case String.split "\n" s of
-        first :: li ->
-            "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" li
+        first :: list ->
+            "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" list
 
         _ ->
             ""
 
 
-addLastHeader : String -> String
-addLastHeader s =
+addHeader4Last : String -> String
+addHeader4Last s =
     case String.split "\n" s of
-        first :: li ->
-            "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" li
+        first :: list ->
+            "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" list
 
         _ ->
             ""
@@ -257,8 +255,8 @@ view : Model -> Html Msg
 view model =
     div []
         [ div [ class "sitemap" ]
-            [ tree2Html model.node
+            [ tree2Html model.tree
             ]
         , pre []
-            [ text <| tree2Plane model.node ]
+            [ text <| tree2Plane model.tree ]
         ]

@@ -1,9 +1,8 @@
 module MainTest exposing (suite)
 
 import Expect exposing (Expectation)
-import Fuzz exposing (Fuzzer, int, list, string)
-import Main exposing (..)
-import MultiwayTree exposing (Tree(..), children, datum)
+import Main exposing (addChild, deleteChild, resetId)
+import MultiwayTree exposing (Tree(..))
 import Test exposing (..)
 
 
@@ -12,7 +11,7 @@ suite =
     describe "Main"
         [ describe "addChild"
             [ test "basic" <|
-                \_ -> Tree { id = [], value = "root" } [] |> addChild [] |> Expect.equal (Just (Tree { id = [], value = "root" } [ Tree { id = [ 0 ], value = "" } [] ] |> tree2Zipper))
+                \_ -> Tree { id = [], value = "root" } [] |> addChild [] |> Expect.equal (Just (Tree { id = [], value = "root" } [ Tree { id = [ 0 ], value = "" } [] ]))
             , test "complex" <|
                 \_ ->
                     Tree { id = [], value = "root" }
@@ -34,7 +33,6 @@ suite =
                                         [ Tree { id = [ 2, 0 ], value = "ccc" } []
                                         ]
                                     ]
-                                    |> tree2Zipper
                                 )
                             )
             , test "fail" <|
@@ -42,7 +40,7 @@ suite =
             ]
         , describe "deleteChild"
             [ test "basic" <|
-                \_ -> Tree { id = [], value = "root" } [ Tree { id = [ 0 ], value = "" } [] ] |> deleteChild [ 0 ] |> Expect.equal (Just (Tree { id = [], value = "root" } [] |> tree2Zipper))
+                \_ -> Tree { id = [], value = "root" } [ Tree { id = [ 0 ], value = "" } [] ] |> deleteChild [ 0 ] |> Expect.equal (Just (Tree { id = [], value = "root" } []))
             , test "complex" <|
                 \_ ->
                     Tree { id = [], value = "root" }
@@ -61,7 +59,6 @@ suite =
                                         [ Tree { id = [ 2, 0 ], value = "ccc" } []
                                         ]
                                     ]
-                                    |> tree2Zipper
                                 )
                             )
             , test "fail" <|

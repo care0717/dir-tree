@@ -59,7 +59,7 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Change id value ->
-            { model | tree = model.tree |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
+            { model | tree = model.tree |> Optional.modify (setNodeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
             case
@@ -70,7 +70,7 @@ update msg model =
                     { model
                         | tree =
                             model.tree
-                                |> Optional.modify (parentId id |> childrenOfTreeById) (\children -> removeElement index children)
+                                |> Optional.modify (parentId id |> setChildrenById) (\children -> removeElement index children)
                                 |> resetRootId
                     }
 
@@ -81,7 +81,7 @@ update msg model =
             { model
                 | tree =
                     model.tree
-                        |> Optional.modify (treeOfTreeById id) (\_ -> Tree { id = [], value = "" } [])
+                        |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
                         |> resetRootId
             }
 
@@ -117,18 +117,18 @@ getOptionalByGetterAndSetter getFunc setFunc id =
     Optional get set
 
 
-childrenOfTreeById : Id -> Optional (Tree a) (Forest a)
-childrenOfTreeById =
-    getOptionalByGetterAndSetter (treeOfZipper >> MultiwayTree.children) Zipper.updateChildren
-
-
-treeOfTreeById : Id -> Optional (Tree a) (Tree a)
-treeOfTreeById =
+addTreeById : Id -> Optional (Tree a) (Tree a)
+addTreeById =
     getOptionalByGetterAndSetter treeOfZipper Zipper.appendChild
 
 
-nodeOfTreeById : Id -> Optional (Tree a) a
-nodeOfTreeById =
+setChildrenById : Id -> Optional (Tree a) (Forest a)
+setChildrenById =
+    getOptionalByGetterAndSetter (treeOfZipper >> MultiwayTree.children) Zipper.updateChildren
+
+
+setNodeById : Id -> Optional (Tree a) a
+setNodeById =
     getOptionalByGetterAndSetter Zipper.datum Zipper.replaceDatum
 
 

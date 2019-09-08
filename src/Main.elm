@@ -1,13 +1,14 @@
 module Main exposing (main, resetRootId)
 
 import Browser
-import Html exposing (Html, button, div, input, li, pre, text, ul)
-import Html.Attributes exposing (class, value)
-import Html.Events exposing (onClick, onInput)
+import Html exposing (Html, button, div, i, input, li, pre, section, text, ul)
+import Html.Attributes exposing (class, disabled, type_, value)
+import Html.Events exposing (onBlur, onClick, onFocus, onInput)
 import List exposing ((::))
 import Monocle.Optional as Optional exposing (Optional)
 import MultiwayTree exposing (Forest, Tree(..))
 import MultiwayTreeZipper as Zipper exposing (Zipper)
+import UndoList exposing (UndoList)
 
 
 main =
@@ -27,22 +28,18 @@ type alias NodeData =
 
 
 type alias Model =
-    Tree NodeData
+    UndoList (Tree NodeData)
 
 
 nodeTree : Tree NodeData
 nodeTree =
-    Tree { id = [], value = "root" }
-        [ Tree { id = [ 0 ], value = "aaa" } []
-        , Tree { id = [ 1 ], value = "bbb" } [ Tree { id = [ 1, 0 ], value = "ccc" } [] ]
-        , Tree { id = [ 2 ], value = "ddd" }
-            []
-        ]
+    Tree { id = [], value = "" }
+        []
 
 
 init : Model
 init =
-    nodeTree
+    UndoList.fresh nodeTree
 
 
 
@@ -54,13 +51,17 @@ type Msg
     | Add Id
     | Delete Id
     | Reset
+    | Undo
+    | Redo
+    | Save
+    | CancelSave
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
         Change id value ->
-            model |> Optional.modify (setNodeById id) (\nd -> { nd | value = value })
+            { model | present = model.present |> Optional.modify (setNodeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
             case
@@ -68,20 +69,46 @@ update msg model =
                     |> List.head
             of
                 Just index ->
-                    model
-                        |> Optional.modify (parentId id |> setChildrenById) (\children -> removeElement index children)
-                        |> resetRootId
+                    UndoList.new
+                        (model.present
+                            |> Optional.modify (parentId id |> setChildrenById) (\children -> removeElement index children)
+                            |> resetRootId
+                        )
+                        model
 
                 Nothing ->
                     model
 
         Add id ->
-            model
-                |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
-                |> resetRootId
+            UndoList.new
+                (model.present
+                    |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
+                    |> resetRootId
+                )
+                model
 
         Reset ->
-            Tree { id = [], value = "" } []
+            UndoList.new (Tree { id = [], value = "" } []) model
+
+        Undo ->
+            UndoList.undo model
+
+        Redo ->
+            UndoList.redo model
+
+        Save ->
+            UndoList.new model.present model
+
+        CancelSave ->
+            if model.present == (UndoList.undo model).present then
+                if UndoList.lengthPast model == 1 then
+                    UndoList.fresh model.present
+
+                else
+                    UndoList.new (UndoList.undo model).present (UndoList.undo model |> UndoList.undo)
+
+            else
+                model
 
 
 treeOfZipper : Zipper a -> Tree a
@@ -183,7 +210,7 @@ tree2Html tree =
         [ li []
             ((::)
                 (div []
-                    [ input [ value data.value, onInput (Change data.id) ] []
+                    [ input [ type_ "text", value data.value, onInput (Change data.id), onFocus Save, onBlur CancelSave ] []
                     , button [ onClick (Add data.id) ] [ text "+" ]
                     , button [ onClick (Delete data.id) ] [ text "-" ]
                     ]
@@ -235,11 +262,26 @@ tree2Plane tree =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ button [ onClick Reset ] [ text "RESET" ]
-        , div [ class "sitemap" ]
-            [ tree2Html model
+    let
+        canNotUndo =
+            UndoList.hasPast model |> not
+
+        canNotRedo =
+            UndoList.hasFuture model |> not
+    in
+    section [ class "section" ]
+        [ div [ class "container" ]
+            [ button [ class "button", type_ "reset", onClick Reset ] [ text "Reset" ]
+            , button
+                [ class "icon is-medium button", type_ "button", onClick Undo, disabled canNotUndo ]
+                [ i [ class "fas fa-undo" ] [] ]
+            , button
+                [ class "icon is-medium button", type_ "button", onClick Redo, disabled canNotRedo ]
+                [ i [ class "fas fa-redo" ] [] ]
+            , div [ class "sitemap" ]
+                [ tree2Html model.present
+                ]
+            , pre []
+                [ text <| tree2Plane model.present ]
             ]
-        , pre []
-            [ text <| tree2Plane model ]
         ]

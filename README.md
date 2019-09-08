@@ -8,4 +8,4 @@
 
 ## How to start
 ### for browser
-`yarn start`
+`yarn dev`

@@ -1,4 +1,4 @@
-module Main exposing (addChild, deleteChild, main, resetId)
+module Main exposing (korenani, main, resetRootId)
 
 import Browser
 import Html exposing (Html, button, div, input, li, pre, text, ul)
@@ -6,7 +6,7 @@ import Html.Attributes exposing (class, value)
 import Html.Events exposing (onClick, onInput)
 import List exposing ((::))
 import Monocle.Optional as Optional exposing (Optional)
-import MultiwayTree exposing (Tree(..), children, datum)
+import MultiwayTree exposing (Forest, Tree(..))
 import MultiwayTreeZipper as Zipper exposing (Zipper)
 
 
@@ -62,20 +62,28 @@ update msg model =
             { model | tree = model.tree |> Optional.modify (nodeOfTreeById id) (\nd -> { nd | value = value }) }
 
         Delete id ->
-            case deleteChild id model.tree of
-                Just tree ->
-                    { model | tree = tree |> resetId }
+            case
+                List.reverse id
+                    |> List.head
+            of
+                Just index ->
+                    { model
+                        | tree =
+                            model.tree
+                                |> Optional.modify (parentId id |> childrenOfTreeById) (\children -> removeElement index children)
+                                |> resetRootId
+                    }
 
                 Nothing ->
                     model
 
         Add id ->
-            case addChild id model.tree of
-                Just tree ->
-                    { model | tree = tree }
-
-                Nothing ->
-                    model
+            { model
+                | tree =
+                    model.tree
+                        |> Optional.modify (childrenOfTreeById id) (\children -> children ++ [ Tree { id = [], value = "" } [] ])
+                        |> resetRootId
+            }
 
 
 treeOfZipper : Zipper a -> Tree a
@@ -83,118 +91,92 @@ treeOfZipper ( tree, _ ) =
     tree
 
 
-tree2Zipper : Tree a -> Zipper a
-tree2Zipper tree =
-    ( tree, [] )
-
-
-goToNodeById : Id -> Maybe (Zipper a) -> Maybe (Zipper a)
-goToNodeById id mZipper =
-    List.foldl (\idx mz -> mz |> Maybe.andThen (Zipper.goToChild idx)) mZipper id
-
-
-nodeOfTreeById : Id -> Optional (Tree a) a
-nodeOfTreeById id =
+goToZipperById : Id -> Tree a -> Maybe (Zipper a)
+goToZipperById id tree =
     let
-        -- treeをZipper化して、指定されたidまで潜る
-        targetZipper tree =
-            Just (tree2Zipper tree) |> goToNodeById id
+        goToNode : Zipper a -> Maybe (Zipper a)
+        goToNode zipper =
+            List.foldl (\idx mz -> mz |> Maybe.andThen (Zipper.goToChild idx)) (Just zipper) id
+    in
+    ( tree, [] ) |> goToNode
 
-        -- 指定されたidをdataで書き換え、Root Zipperに戻したもの
+
+korenani : Id -> (b -> Zipper a -> Maybe (Zipper a)) -> (Zipper a -> b) -> Optional (Tree a) b
+korenani id replaceFunc getFunc =
+    let
+        -- 指定されたidのZipperをdataで書き換える関数を用いて書き換え、Root Zipperに戻したもの
         replacedZipper tree data =
-            targetZipper tree |> Maybe.andThen (Zipper.replaceDatum data) |> Maybe.andThen Zipper.goToRoot
+            goToZipperById id tree |> Maybe.andThen (replaceFunc data) |> Maybe.andThen Zipper.goToRoot
 
-        -- 指定されたidのnodeDataを得るgetter
+        -- 指定されたidのZipperからdataを得るgetter
         get tree =
-            Maybe.map Zipper.datum (targetZipper tree)
+            goToZipperById id tree |> Maybe.map getFunc
 
-        -- 指定されたidのnodeDateを書き換えるsetter, もし該当箇所が無ければ元のtreeを返す
+        -- 指定されたidのZipperのdataを書き換えるsetter, もし該当箇所が無ければ元のtreeを返す
         set data tree =
             Maybe.withDefault tree (Maybe.map treeOfZipper <| replacedZipper tree data)
     in
     Optional get set
 
 
+childrenOfTreeById : Id -> Optional (Tree a) (Forest a)
+childrenOfTreeById id =
+    korenani id Zipper.updateChildren (treeOfZipper >> MultiwayTree.children)
+
+
+nodeOfTreeById : Id -> Optional (Tree a) a
+nodeOfTreeById id =
+    korenani id Zipper.replaceDatum Zipper.datum
+
+
+parentId : Id -> Id
+parentId id =
+    List.take (List.length id - 1) id
+
+
+removeElement : Int -> List a -> List a
+removeElement i list =
+    List.take i list ++ List.drop (i + 1) list
+
+
+resetRootId : Tree NodeData -> Tree NodeData
+resetRootId tree =
+    let
+        newTree =
+            Tree { id = [], value = (MultiwayTree.datum tree).value } (MultiwayTree.children tree)
+    in
+    resetId newTree
+
+
 resetId : Tree NodeData -> Tree NodeData
 resetId tree =
     let
-        newTree =
-            Tree { id = [], value = (datum tree).value } (children tree)
-    in
-    resetChildrenId newTree
-
-
-resetChildrenId : Tree NodeData -> Tree NodeData
-resetChildrenId tree =
-    let
         id =
-            (datum tree).id
+            (MultiwayTree.datum tree).id
 
         newChildren =
             List.foldl
                 (\child acc ->
                     let
                         newChild =
-                            Tree { id = id ++ [ List.length acc ], value = (datum child).value } (children child)
+                            Tree { id = id ++ [ List.length acc ], value = (MultiwayTree.datum child).value } (MultiwayTree.children child)
                     in
-                    acc ++ [ resetChildrenId newChild ]
+                    acc ++ [ resetId newChild ]
                 )
                 []
-                (children tree)
+                (MultiwayTree.children tree)
     in
-    Tree (datum tree) newChildren
-
-
-deleteChild : Id -> Tree NodeData -> Maybe (Tree NodeData)
-deleteChild id tree =
-    List.reverse id
-        |> List.head
-        |> Maybe.andThen
-            (\index ->
-                let
-                    removeElement i list =
-                        List.take i list ++ List.drop (i + 1) list
-                in
-                Just (tree2Zipper tree)
-                    |> goToNodeById (List.take (List.length id - 1) id)
-                    |> Maybe.andThen
-                        (\zip ->
-                            Zipper.updateChildren (removeElement index (treeOfZipper zip |> children)) zip
-                        )
-                    |> Maybe.andThen Zipper.goToRoot
-            )
-        |> Maybe.map treeOfZipper
-
-
-addChild : Id -> Tree NodeData -> Maybe (Tree NodeData)
-addChild id tree =
-    let
-        mZip =
-            Just (tree2Zipper tree) |> goToNodeById id
-    in
-    mZip
-        |> Maybe.andThen
-            (\zip ->
-                let
-                    len =
-                        treeOfZipper zip |> children |> List.length
-
-                    emptyTree =
-                        Tree { id = id ++ [ len ], value = "" } []
-                in
-                zip |> Zipper.appendChild emptyTree |> Maybe.andThen Zipper.goToRoot
-            )
-        |> Maybe.map treeOfZipper
+    Tree (MultiwayTree.datum tree) newChildren
 
 
 tree2Html : Tree NodeData -> Html Msg
 tree2Html tree =
     let
         data =
-            datum tree
+            MultiwayTree.datum tree
 
-        forest =
-            children tree
+        children =
+            MultiwayTree.children tree
     in
     ul []
         [ li []
@@ -205,16 +187,35 @@ tree2Html tree =
                     , button [ onClick (Delete data.id) ] [ text "-" ]
                     ]
                 )
-                (List.map tree2Html forest)
+                (List.map tree2Html children)
             )
         ]
 
 
 tree2Plane : Tree NodeData -> String
 tree2Plane tree =
-    case children tree |> List.reverse of
+    let
+        addHeader : String -> String
+        addHeader s =
+            case String.split "\n" s of
+                first :: list ->
+                    "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" list
+
+                _ ->
+                    ""
+
+        addHeader4Last : String -> String
+        addHeader4Last s =
+            case String.split "\n" s of
+                first :: list ->
+                    "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" list
+
+                _ ->
+                    ""
+    in
+    case MultiwayTree.children tree |> List.reverse of
         last :: rest ->
-            (datum tree).value
+            (MultiwayTree.datum tree).value
                 ++ List.foldl
                     (\x acc ->
                         acc ++ addHeader (tree2Plane x)
@@ -224,27 +225,7 @@ tree2Plane tree =
                 ++ addHeader4Last (tree2Plane last)
 
         _ ->
-            (datum tree).value
-
-
-addHeader : String -> String
-addHeader s =
-    case String.split "\n" s of
-        first :: list ->
-            "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" list
-
-        _ ->
-            ""
-
-
-addHeader4Last : String -> String
-addHeader4Last s =
-    case String.split "\n" s of
-        first :: list ->
-            "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" list
-
-        _ ->
-            ""
+            (MultiwayTree.datum tree).value
 
 
 

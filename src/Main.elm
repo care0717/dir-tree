@@ -101,12 +101,12 @@ goToZipperById id tree =
     ( tree, [] ) |> goToNode
 
 
-korenani : Id -> (b -> Zipper a -> Maybe (Zipper a)) -> (Zipper a -> b) -> Optional (Tree a) b
-korenani id replaceFunc getFunc =
+getOptionalByGetterAndSetter : Id -> (Zipper a -> b) -> (b -> Zipper a -> Maybe (Zipper a)) -> Optional (Tree a) b
+getOptionalByGetterAndSetter id getFunc setFunc =
     let
         -- 指定されたidのZipperをdataで書き換える関数を用いて書き換え、Root Zipperに戻したもの
         replacedZipper tree data =
-            goToZipperById id tree |> Maybe.andThen (replaceFunc data) |> Maybe.andThen Zipper.goToRoot
+            goToZipperById id tree |> Maybe.andThen (setFunc data) |> Maybe.andThen Zipper.goToRoot
 
         -- 指定されたidのZipperからdataを得るgetter
         get tree =
@@ -121,12 +121,12 @@ korenani id replaceFunc getFunc =
 
 childrenOfTreeById : Id -> Optional (Tree a) (Forest a)
 childrenOfTreeById id =
-    korenani id Zipper.updateChildren (treeOfZipper >> MultiwayTree.children)
+    getOptionalByGetterAndSetter id (treeOfZipper >> MultiwayTree.children) Zipper.updateChildren
 
 
 nodeOfTreeById : Id -> Optional (Tree a) a
 nodeOfTreeById id =
-    korenani id Zipper.replaceDatum Zipper.datum
+    getOptionalByGetterAndSetter id Zipper.datum Zipper.replaceDatum
 
 
 parentId : Id -> Id

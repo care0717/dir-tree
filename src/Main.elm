@@ -27,7 +27,7 @@ type alias NodeData =
 
 
 type alias Model =
-    { tree : Tree NodeData }
+    Tree NodeData
 
 
 nodeTree : Tree NodeData
@@ -42,7 +42,7 @@ nodeTree =
 
 init : Model
 init =
-    Model nodeTree
+    nodeTree
 
 
 
@@ -60,7 +60,7 @@ update : Msg -> Model -> Model
 update msg model =
     case msg of
         Change id value ->
-            { model | tree = model.tree |> Optional.modify (setNodeById id) (\nd -> { nd | value = value }) }
+            model |> Optional.modify (setNodeById id) (\nd -> { nd | value = value })
 
         Delete id ->
             case
@@ -68,28 +68,20 @@ update msg model =
                     |> List.head
             of
                 Just index ->
-                    { model
-                        | tree =
-                            model.tree
-                                |> Optional.modify (parentId id |> setChildrenById) (\children -> removeElement index children)
-                                |> resetRootId
-                    }
+                    model
+                        |> Optional.modify (parentId id |> setChildrenById) (\children -> removeElement index children)
+                        |> resetRootId
 
                 Nothing ->
                     model
 
         Add id ->
-            { model
-                | tree =
-                    model.tree
-                        |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
-                        |> resetRootId
-            }
+            model
+                |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
+                |> resetRootId
 
         Reset ->
-            { model
-                | tree = Tree { id = [], value = "" } []
-            }
+            Tree { id = [], value = "" } []
 
 
 treeOfZipper : Zipper a -> Tree a
@@ -246,8 +238,8 @@ view model =
     div []
         [ button [ onClick Reset ] [ text "RESET" ]
         , div [ class "sitemap" ]
-            [ tree2Html model.tree
+            [ tree2Html model
             ]
         , pre []
-            [ text <| tree2Plane model.tree ]
+            [ text <| tree2Plane model ]
         ]

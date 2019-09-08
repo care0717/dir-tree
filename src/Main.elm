@@ -53,6 +53,7 @@ type Msg
     = Change Id String
     | Add Id
     | Delete Id
+    | Reset
 
 
 update : Msg -> Model -> Model
@@ -83,6 +84,11 @@ update msg model =
                     model.tree
                         |> Optional.modify (addTreeById id) (\_ -> Tree { id = [], value = "" } [])
                         |> resetRootId
+            }
+
+        Reset ->
+            { model
+                | tree = Tree { id = [], value = "" } []
             }
 
 
@@ -238,7 +244,8 @@ tree2Plane tree =
 view : Model -> Html Msg
 view model =
     div []
-        [ div [ class "sitemap" ]
+        [ button [ onClick Reset ] [ text "RESET" ]
+        , div [ class "sitemap" ]
             [ tree2Html model.tree
             ]
         , pre []

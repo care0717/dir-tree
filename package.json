@@ -6,8 +6,9 @@
   "license": "MIT",
   "scripts": {
     "build": "webpack --mode development",
-    "start": "webpack-dev-server",
-    "watch": "webpack --watch --mode development ",
+    "start": "webpack-dev-server --hot --inline",
+    "prod": "webpack --mode=production && webpack-dev-server --mode=production --port 80",
+    "watch": "webpack --watch --mode development --hot --inline",
     "test": "elm-test"
   },
   "devDependencies": {

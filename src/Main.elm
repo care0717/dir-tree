@@ -1,4 +1,4 @@
-module Main exposing (korenani, main, resetRootId)
+module Main exposing (main, resetRootId)
 
 import Browser
 import Html exposing (Html, button, div, input, li, pre, text, ul)
@@ -81,7 +81,7 @@ update msg model =
             { model
                 | tree =
                     model.tree
-                        |> Optional.modify (childrenOfTreeById id) (\children -> children ++ [ Tree { id = [], value = "" } [] ])
+                        |> Optional.modify (treeOfTreeById id) (\_ -> Tree { id = [], value = "" } [])
                         |> resetRootId
             }
 
@@ -91,26 +91,24 @@ treeOfZipper ( tree, _ ) =
     tree
 
 
-goToZipperById : Id -> Tree a -> Maybe (Zipper a)
-goToZipperById id tree =
+getOptionalByGetterAndSetter : (Zipper a -> b) -> (b -> Zipper a -> Maybe (Zipper a)) -> Id -> Optional (Tree a) b
+getOptionalByGetterAndSetter getFunc setFunc id =
     let
-        goToNode : Zipper a -> Maybe (Zipper a)
-        goToNode zipper =
-            List.foldl (\idx mz -> mz |> Maybe.andThen (Zipper.goToChild idx)) (Just zipper) id
-    in
-    ( tree, [] ) |> goToNode
+        goToZipper : Tree a -> Maybe (Zipper a)
+        goToZipper tree =
+            let
+                goToNode zipper =
+                    List.foldl (\idx mz -> mz |> Maybe.andThen (Zipper.goToChild idx)) (Just zipper) id
+            in
+            ( tree, [] ) |> goToNode
 
-
-getOptionalByGetterAndSetter : Id -> (Zipper a -> b) -> (b -> Zipper a -> Maybe (Zipper a)) -> Optional (Tree a) b
-getOptionalByGetterAndSetter id getFunc setFunc =
-    let
         -- 指定されたidのZipperをdataで書き換える関数を用いて書き換え、Root Zipperに戻したもの
         replacedZipper tree data =
-            goToZipperById id tree |> Maybe.andThen (setFunc data) |> Maybe.andThen Zipper.goToRoot
+            goToZipper tree |> Maybe.andThen (setFunc data) |> Maybe.andThen Zipper.goToRoot
 
         -- 指定されたidのZipperからdataを得るgetter
         get tree =
-            goToZipperById id tree |> Maybe.map getFunc
+            goToZipper tree |> Maybe.map getFunc
 
         -- 指定されたidのZipperのdataを書き換えるsetter, もし該当箇所が無ければ元のtreeを返す
         set data tree =
@@ -120,13 +118,18 @@ getOptionalByGetterAndSetter id getFunc setFunc =
 
 
 childrenOfTreeById : Id -> Optional (Tree a) (Forest a)
-childrenOfTreeById id =
-    getOptionalByGetterAndSetter id (treeOfZipper >> MultiwayTree.children) Zipper.updateChildren
+childrenOfTreeById =
+    getOptionalByGetterAndSetter (treeOfZipper >> MultiwayTree.children) Zipper.updateChildren
+
+
+treeOfTreeById : Id -> Optional (Tree a) (Tree a)
+treeOfTreeById =
+    getOptionalByGetterAndSetter treeOfZipper Zipper.appendChild
 
 
 nodeOfTreeById : Id -> Optional (Tree a) a
-nodeOfTreeById id =
-    getOptionalByGetterAndSetter id Zipper.datum Zipper.replaceDatum
+nodeOfTreeById =
+    getOptionalByGetterAndSetter Zipper.datum Zipper.replaceDatum
 
 
 parentId : Id -> Id

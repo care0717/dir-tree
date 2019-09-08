@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "build": "webpack",
-    "start": "webpack && webpack-dev-server --port 80",
+    "start": "webpack-dev-server --port 80",
     "dev": "webpack-dev-server --hot --inline",
     "watch": "webpack --watch --mode development --hot --inline",
     "test": "elm-test"
@@ -21,8 +21,9 @@
     "sass-loader": "^7.1.0",
     "style-loader": "^0.23.1",
     "webpack": "^4.28.1",
-    "webpack-cli": "^3.1.2",
-    "webpack-dev-server": "^3.1.11"
+    "webpack-cli": "^3.1.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "webpack-dev-server": "^3.8.0"
+  }
 }

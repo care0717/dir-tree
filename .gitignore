@@ -1,5 +1,4 @@
-dist/bundle.js
-dist/index.html
+public/bundle.js
 node_modules/
 elm-stuff/
 tests/elm-stuff/

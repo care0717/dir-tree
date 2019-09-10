@@ -236,7 +236,7 @@ tree2Plane tree =
         addHeader4Last s =
             case String.split "\n" s of
                 first :: list ->
-                    "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n     " ++ x) "" list
+                    "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n    " ++ x) "" list
 
                 _ ->
                     ""
@@ -281,7 +281,7 @@ view model =
             , div [ class "sitemap" ]
                 [ tree2Html model.present
                 ]
-            , pre []
+            , pre [ class "pre_text" ]
                 [ text <| tree2Plane model.present ]
             ]
         ]

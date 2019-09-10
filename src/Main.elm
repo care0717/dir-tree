@@ -227,7 +227,7 @@ tree2Plane tree =
         addHeader s =
             case String.split "\n" s of
                 first :: list ->
-                    "\n┣━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n┃   " ++ x) "" list
+                    "\n├── " ++ first ++ List.foldl (\x acc -> acc ++ "\n│   " ++ x) "" list
 
                 _ ->
                     ""
@@ -236,7 +236,7 @@ tree2Plane tree =
         addHeader4Last s =
             case String.split "\n" s of
                 first :: list ->
-                    "\n┗━ " ++ first ++ List.foldl (\x acc -> acc ++ "\n    " ++ x) "" list
+                    "\n└── " ++ first ++ List.foldl (\x acc -> acc ++ "\n    " ++ x) "" list
 
                 _ ->
                     ""

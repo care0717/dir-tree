@@ -88,7 +88,7 @@ update msg model =
                 model
 
         Reset ->
-            UndoList.new (Tree { id = [], value = "" } []) model
+            UndoList.new (Tree { id = [], value = "" } []) model |> update CancelSave
 
         Undo ->
             UndoList.undo model

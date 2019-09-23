@@ -54,7 +54,7 @@ type Msg
     | Undo
     | Redo
     | Save
-    | CancelSave
+    | RemoveNoChangeUndoItem
 
 
 update : Msg -> Model -> Model
@@ -88,7 +88,7 @@ update msg model =
                 model
 
         Reset ->
-            UndoList.new (Tree { id = [], value = "" } []) model |> update CancelSave
+            UndoList.new (Tree { id = [], value = "" } []) model |> update RemoveNoChangeUndoItem
 
         Undo ->
             UndoList.undo model
@@ -99,7 +99,7 @@ update msg model =
         Save ->
             UndoList.new model.present model
 
-        CancelSave ->
+        RemoveNoChangeUndoItem ->
             if model.present == (UndoList.undo model).present then
                 if UndoList.lengthPast model == 1 then
                     UndoList.fresh model.present
@@ -210,7 +210,7 @@ tree2Html tree =
         [ li []
             ((::)
                 (div []
-                    [ input [ type_ "text", value data.value, onInput (Change data.id), onFocus Save, onBlur CancelSave ] []
+                    [ input [ type_ "text", value data.value, onInput (Change data.id), onFocus Save, onBlur RemoveNoChangeUndoItem ] []
                     , button [ onClick (Add data.id) ] [ text "+" ]
                     , button [ onClick (Delete data.id) ] [ text "-" ]
                     ]

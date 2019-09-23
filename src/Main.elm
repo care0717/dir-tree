@@ -1,7 +1,7 @@
 module Main exposing (main, resetRootId)
 
 import Browser
-import Html exposing (Html, button, div, i, input, li, pre, section, text, ul)
+import Html exposing (Html, button, div, hr, i, input, li, pre, section, text, ul)
 import Html.Attributes exposing (class, disabled, type_, value)
 import Html.Events exposing (onBlur, onClick, onFocus, onInput)
 import List exposing ((::))
@@ -278,6 +278,7 @@ view model =
             , button
                 [ class "icon is-medium button", type_ "button", onClick Redo, disabled canNotRedo ]
                 [ i [ class "fas fa-redo" ] [] ]
+            , hr [] []
             , div [ class "sitemap" ]
                 [ tree2Html model.present
                 ]
